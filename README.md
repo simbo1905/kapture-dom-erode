@@ -138,6 +138,8 @@ Gaming Mouse
 Was $59.99, now $29.99 (50% OFF)
 ```
 
+> 💡 **In the above result:** *Wireless Headphones* and *Gaming Mouse* were the two items you searched for. *USB-C Hub Pro* and *Mechanical Keyboard* are their siblings — all eroded from the same parent container in one shot.
+
 All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
 
 ---
