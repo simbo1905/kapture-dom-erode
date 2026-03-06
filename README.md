@@ -128,14 +128,14 @@ Special Offers
 Wireless Headphones
 Was $89.99, now $44.99 (50% OFF)
 
-Gaming Mouse
-Was $59.99, now $29.99 (50% OFF)
-
 USB-C Hub Pro
 Was $79.99, now $39.99 (50% OFF)
 
 Mechanical Keyboard
 Was $129.99, now $64.99 (50% OFF)
+
+Gaming Mouse
+Was $59.99, now $29.99 (50% OFF)
 ```
 
 All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
