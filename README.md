@@ -120,20 +120,22 @@ You're browsing Amazon. You see two products with "Limited Time Deal" badges. Yo
 ./tools.sh extract-text -f amazon.html -p "html[0].body[0].div[2]"
 ```
 
-**Result** -- clean, readable list:
+**Result** -- all the special offers, eroded from the tag soup:
 
 ```
-Today's Deals
-Sony WH-1000XM5
-Was $399, now $299
-Limited Time Deal
-Anker USB-C Hub
-Was $59, now $39
-Limited Time Deal
-Logitech MX Master 3S
-Was $99, now $79
-Limited Time Deal
-...
+Special Offers
+
+Wireless Headphones
+Was $89.99, now $44.99 (50% OFF)
+
+Gaming Mouse
+Was $59.99, now $29.99 (50% OFF)
+
+USB-C Hub Pro
+Was $79.99, now $39.99 (50% OFF)
+
+Mechanical Keyboard
+Was $129.99, now $64.99 (50% OFF)
 ```
 
 All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
