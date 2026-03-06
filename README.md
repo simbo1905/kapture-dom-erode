@@ -136,6 +136,12 @@ Was $79.99, now $39.99 (50% OFF)
 
 Mechanical Keyboard
 Was $129.99, now $64.99 (50% OFF)
+
+Monitor Stand
+Was $49.99, now $24.99 (50% OFF)
+
+Webcam 4K
+Was $99.99, now $49.99 (50% OFF)
 ```
 
 All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
