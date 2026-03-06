@@ -4,8 +4,7 @@ You asked your LLM to check a web page. It saved an DOM dump that blows up its c
 
 
 ```bash
-❯ ls -alh .tmp
-total 1.8M
+❯ ls -alh kapture-dom-page-save.html
 -rw-r--r--  1 yourname  staff   1.8M Mar  6 13:06 kapture-dom-page-save.html
 ```
  
