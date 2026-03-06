@@ -25,7 +25,7 @@ Your agent says *"I can see the page"* but what it actually has is millions of c
 - 💸 **Context windows cry** -- feeding raw HTML to your LLM is... not ideal
 - ⚠️ **Screenshots aren't parseable** -- you can see it, but the agent can't read it
 
-If you can see six products on "special offer" on the page. The agent cannot see those six special offers amongst the 25 products in the 2M tag soup! 
+If you can see four products on "special offer" on the page. The agent cannot see those four special offers amongst the 25 products in the 2M tag soup! 
 
 ## The Solution `kapture-dom-erode`
 
@@ -136,12 +136,6 @@ Was $79.99, now $39.99 (50% OFF)
 
 Mechanical Keyboard
 Was $129.99, now $64.99 (50% OFF)
-
-Monitor Stand
-Was $49.99, now $24.99 (50% OFF)
-
-Webcam 4K
-Was $99.99, now $49.99 (50% OFF)
 ```
 
 All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
