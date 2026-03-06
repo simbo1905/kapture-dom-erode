@@ -1,6 +1,6 @@
 # kapture-dom-erode
 
-You asked your LLM to check a web page. It saved a 5MB DOM dump. 😱 
+You asked your LLM to check a web page. It saved an DOM dump that blows up its context window. 😱 
 
 
 ```bash
