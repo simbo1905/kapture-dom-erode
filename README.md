@@ -1,8 +1,8 @@
 # kapture-dom-erode
 
-> **You asked your LLM to check a web page. It saved a 5MB DOM dump. Now what?**
-> 
-> 📄➡️🔍➡️📋 Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
+**You asked your LLM to check a web page. It saved a 5MB DOM dump. Now what?**
+
+ 📄➡️🔍➡️📋 Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
 ---
 
