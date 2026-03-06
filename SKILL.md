@@ -1,3 +1,10 @@
+---
+name: kapture-dom-erode
+description: Search and extract readable text from multi-megabyte Kapture MCP DOM snapshots by eroding away HTML tag soup. Use when you have a saved DOM from kapture_dom and need to find or read visible on-screen content.
+version: 1.0.0
+tags: [kapture, kapture-mcp, kapture-dom, dom-parsing, opencode-skill, agent-skills]
+---
+
 # kapture-dom-erode
 
 **A companion skill for the [Kapture MCP](https://github.com/anthropics/kapture) browser plugin.**
