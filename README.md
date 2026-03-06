@@ -1,10 +1,19 @@
 # kapture-dom-erode
 
-**You asked your LLM to check a web page. It saved a 5MB DOM dump. Now what?**
-
- 📄➡️🔍➡️📋 Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
+> **😱 You asked your LLM to check a web page. It saved a 5MB DOM dump.**
+> 
+> **❓ What Now?**
+>
+> **💡 Use kapture-dom-erode skill!** Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
 ---
+
+```bash
+❯ ls -alh .tmp
+total 1.8M
+drwxr-xr-x  3 yourname  staff    96B Mar  6 13:06 .
+-rw-r--r--  1 yourname  staff   1.8M Mar  6 13:06 kapture-dom-page-save.html
+```
 
 ## You Know That Moment When...
 
