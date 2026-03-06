@@ -10,16 +10,13 @@ You asked your LLM to check a web page. It saved an DOM dump that blows up its c
  
 What now? Use the kapture-dom-erode skill. Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
+This tool lets it _grep_ the strings you care about then _merge_ all the `div` soup to find smallest merged screen text that *includes* the strings you are interested in. This allows it to find all the text within a heavily nested side panel of a complex dynamic web page.  
 
 ## You Know That Moment When...
 
 Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. 
 
 **You*** see text on screen that is not far appart. The **LLM** sees that text a mile appart inside 47 wrapper tags. 
-
-This tool lets it _grep_ the strings you care about then _merge_ all the `div` soup to find smallest merged "plain text" that is everything that *includes* the strings you want. 
-
-If you can see six projects on a huge page that are on "special offer" the agent can match on two distinct strings then grab all six projects quickly in just three tool calls. 
 
 ## The Problem
 
@@ -28,15 +25,20 @@ If you can see six projects on a huge page that are on "special offer" the agent
 - 💸 **Context windows cry** -- feeding raw HTML to your LLM is... not ideal
 - ⚠️ **Screenshots aren't parseable** -- you can see it, but the agent can't read it
 
+If you can see six projects on "special offer" on the page. The agent cannot see those six special offers amongst the 25 projects in the 2M tag soup! 
+
 ## The Solution `kapture-dom-erode`
 
-Two commands. Find text. Extract clean content. Done.
+The commands. Find two on special, merge to find them all. Done.
 
 ```bash
-# Step 1: grep for WHERE the text lives in the DOM tree
+# Step 1: grep for WHERE the one special offer lives in the DOM tree
 ./tools.sh gron-grep -f saved_page.html -q "Wireless Headphones"
 
-# Step 2: erode away all the tags, keep just the readable text
+# Step 2: grep for WHERE the any other special offer lives in the DOM tree
+./tools.sh gron-grep -f saved_page.html -q "Gaming Mouse"
+
+# Step 3: merge all the readable text
 ./tools.sh extract-text -f saved_page.html -p "html[0].body[0].div[6].div[2]"
 ```
 
