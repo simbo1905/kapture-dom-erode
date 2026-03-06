@@ -1,77 +1,166 @@
 # kapture-dom-erode
 
-> **Your LLM saved a web page with [Kapture MCP](https://github.com/anthropics/anthropic-quickstarts/tree/main/kapture-mcp). Now what?**
->
-> The saved DOM is millions of characters of nested `<div>` soup. This skill finds visible text and extracts clean, readable regions -- the way a human sees the page.
+> **You asked your LLM to check a web page. It saved a 5MB DOM dump. Now what?**
+> 
+> 📄➡️🔍➡️📋 Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
 ---
+
+## You Know That Moment When...
+
+Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. The two product names you can see on screen? Buried inside 47 wrapper tags. That sidebar with user statuses? Somewhere in there, good luck finding it.
+
+Yeah. We've all been there.
 
 ## The Problem
 
-When an AI agent captures a page with `kapture_dom`, the result is a multi-megabyte HTML file. The text you can *see* on screen is buried inside hundreds of wrapper tags. Screenshots aren't machine-readable. Raw HTML is unreadable. You need something in between.
+- 🤯 **Kapture DOM dumps are massive** -- 1-5MB of framework-generated tag soup
+- 🔍 **Text is buried** -- "Wireless Headphones" lives at `html[0].body[0].div[6].div[2].div[1].div[4].div[0].h3[0]`
+- 💸 **Context windows cry** -- feeding raw HTML to your LLM is... not ideal
+- ⚠️ **Screenshots aren't parseable** -- you can see it, but the agent can't read it
 
-## The Solution
+## The Solution `kapture-dom-erode`
 
-**Two commands. That's it.**
+Two commands. Find text. Extract clean content. Done.
 
+```bash
+# Step 1: grep for WHERE the text lives in the DOM tree
+./tools.sh gron-grep -f saved_page.html -q "Wireless Headphones"
+
+# Step 2: erode away all the tags, keep just the readable text
+./tools.sh extract-text -f saved_page.html -p "html[0].body[0].div[6].div[2]"
 ```
-gron-grep  -->  find where text lives in the DOM tree
-extract-text  -->  strip tags, return just the readable content
-```
+
+Boom. Human-readable content from the tag soup.
 
 ---
 
-## Example: "Show me all the deals on this page"
+## 🚀 Features That Actually Matter
 
-You're browsing an e-commerce site. You can see two products on sale:
+**1. Structural grep for the DOM** 🔍
 
-> *"Wireless Headphones -- Was $99, now $49"*
-> *"USB-C Hub -- Was $45, now $29"*
-
-You want your LLM to extract **all** the deals, not just those two. Here's what happens:
-
-**Step 1** -- Search for the product names you can see:
+Search any text and get back its exact coordinates in the HTML tree. Like GPS for where content lives.
 
 ```bash
-./tools.sh gron-grep -f page.html -q "Wireless Headphones"
-# html[0].body[0].div[2].div[1].div[0].div[3].div[0].h3[0]
+./tools.sh gron-grep -f page.html -q "On Sale"
 
-./tools.sh gron-grep -f page.html -q "USB-C Hub"
-# html[0].body[0].div[2].div[1].div[0].div[5].div[0].h3[0]
+# html[0].body[0].div[3].div[1].div[2].span[0] = "On Sale"
+# html[0].body[0].div[3].div[5].div[2].span[0] = "On Sale"
 ```
 
-**Step 2** -- Both paths share a common ancestor (`div[2].div[1]`). Extract text from there:
+**2. Tag Erosion** 🧽
+
+Strip away all the markup and return just the visible text from any region of the page. Reading order preserved.
 
 ```bash
-./tools.sh extract-text -f page.html \
-  -p "html[0].body[0].div[2].div[1]"
+./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
+
+# On Sale
+# Wireless Headphones -- Was $99, now $49
+# USB-C Hub -- Was $45, now $29
+# Mechanical Keyboard -- Was $129, now $79
 ```
 
-**Result** -- all the deals, clean and readable:
+**3. Zero Dependencies** 
+
+Just Python + BeautifulSoup. No npm install, no Docker, no 47 layers of abstraction. Pure DOM parsing goodness.
+
+**4. Stupid Fast** ⚡
+
+Processes multi-megabyte files in seconds. Because waiting for tag soup to parse is nobody's idea of fun.
+
+---
+
+## 💡 Use Cases That'll Make You Look Like a Genius
+
+### For AI Agent Wranglers
+
+- **📊 Extract structured data** -- "I can see 3 products on sale. List all of them."
+- **👥 Scrape member lists** -- Chat sidebars, team directories, attendee lists
+- **🛒 Parse e-commerce** -- "Find all items marked 'Special Offer' and their prices"
+- **📑 Read documentation tables** -- API endpoints, config options, pricing tiers
+
+### For Web Scraping Without Scraping
+
+- **🔒 No rate limits** -- you already have the DOM snapshot
+- **📄 No anti-bot** -- it's a local file, not a live site
+- **🎯 Precise extraction** -- find the container, erode the tags, get clean text
+
+---
+
+## Example: "Show Me All The Deals"
+
+You're browsing Amazon. You see two products with "Limited Time Deal" badges. You want your LLM to extract **every** deal on the page.
+
+**Step 1** -- Find where "Limited Time Deal" lives:
+
+```bash
+./tools.sh gron-grep -f amazon.html -q "Limited Time Deal"
+# html[0].body[0].div[2].div[1].div[0].div[3].span[0]
+# html[0].body[0].div[2].div[3].div[0].div[3].span[0]
+```
+
+**Step 2** -- Both share a common ancestor (`div[2]`). Extract everything from there:
+
+```bash
+./tools.sh extract-text -f amazon.html -p "html[0].body[0].div[2]"
+```
+
+**Result** -- clean, readable list:
 
 ```
 Today's Deals
-Wireless Headphones
-Was $99, now $49
-4.5 stars (2,341 reviews)
-USB-C Hub
-Was $45, now $29
-4.7 stars (892 reviews)
-Mechanical Keyboard
-Was $129, now $79
-4.3 stars (1,205 reviews)
-Webcam HD Pro
-Was $89, now $59
-4.6 stars (567 reviews)
+Sony WH-1000XM5
+Was $399, now $299
+Limited Time Deal
+Anker USB-C Hub
+Was $59, now $39
+Limited Time Deal
+Logitech MX Master 3S
+Was $99, now $79
+Limited Time Deal
+...
 ```
 
-All the wrapper divs, CSS classes, and framework markup -- gone. Just the content.
+All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
 
 ---
 
-## Install
+## 📖 Quick Reference (The Details)
 
-Copy the skill folder to your skills directory:
+```
+NAME
+  kapture-dom-erode — search and extract text from Kapture DOM snapshots
+
+SYNOPSIS
+  ./tools.sh gron-grep -f <file> -q <text> [-i]
+  ./tools.sh extract-text -f <file> -p <path>
+
+COMMANDS
+  gron-grep     Find text, output structural paths (gron-style)
+  extract-text  Strip tags below path, return visible text
+
+OPTIONS
+  -f, --file     Input HTML file from Kapture
+  -q, --query    Text to search for (gron-grep)
+  -p, --path     Structural path to extract from (extract-text)
+  -i             Case-insensitive search (gron-grep)
+
+EXAMPLES
+  # Find where "Add to Cart" buttons live
+  ./tools.sh gron-grep -f shop.html -q "Add to Cart" -i
+
+  # Extract all product names from a listing page
+  ./tools.sh gron-grep -f shop.html -q "iPhone 15"
+  # (compare paths, find common ancestor)
+  ./tools.sh extract-text -f shop.html -p "html[0].body[0].div[4]"
+```
+
+---
+
+## ⚡ Installation
+
+Copy the skill to your agent's skills directory:
 
 ```bash
 # OpenCode
@@ -81,58 +170,28 @@ cp -r kapture-dom-erode ~/.config/opencode/skills/
 cp -r kapture-dom-erode ~/.claude/skills/
 ```
 
-### Dependencies
-
-- Python 3 (via [`uv`](https://docs.astral.sh/uv/))
-- beautifulsoup4 + lxml (auto-installed at runtime by `uv`)
-
-No manual `pip install` needed.
+Dependencies? Just Python + BeautifulSoup. The wrapper handles it via `uv`.
 
 ---
 
-## Commands
+## 🎯 Why This Exists
 
-### `gron-grep` -- find text
+Born from frustration with Kapture MCP saving massive DOM dumps and then... what? Screenshots are pretty but not parseable. Raw HTML is machine-readable but human-unreadable. You need something in between.
 
-```bash
-./tools.sh gron-grep -f <dom-file> -q <search-text> [-i]
-```
+This skill is that bridge: find the text, erode the tags, get clean content.
 
-| Flag | Description |
-|------|-------------|
-| `-f` | Saved DOM file (HTML from Kapture) |
-| `-q` | Text to search for |
-| `-i` | Case-insensitive search |
-
-### `extract-text` -- erode tags, get content
-
-```bash
-./tools.sh extract-text -f <dom-file> -p <gron-path>
-```
-
-| Flag | Description |
-|------|-------------|
-| `-f` | Saved DOM file |
-| `-p` | Gron-style path (from `gron-grep` output) |
+You are not someone who enjoys manually grepping through `div[6].div[0].div[0].div[0].div[1].div[0]...` paths to find where the "Buy Now" button lives. Obviously not you. Me neither.
 
 ---
 
-## How It Works
+## 📜 License
 
-1. **`gron-grep`** walks the entire DOM tree and returns a precise structural path (like `html[0].body[0].div[2].span[0]`) for every element matching your search text.
+MIT -- Copyright (c) 2026 Simon Massey
 
-2. You compare paths to find their **common ancestor** -- the container that holds the region of the page you're interested in.
-
-3. **`extract-text`** takes that ancestor path, strips away all HTML tags below it, and returns the visible text in reading order.
-
-Think of it as **`grep` for what's on screen**, not what's in the source code.
+Use it, fork it, put it in production. No warranty -- if it deletes your DOM files, that's on you (though it only reads, so you're probably fine).
 
 ---
 
-## License
+Made with ❤️ and frustration by someone who spent too many tokens hunting for text in tag soup.
 
-MIT
-
----
-
-*Built for use with [Kapture MCP](https://github.com/anthropics/anthropic-quickstarts/tree/main/kapture-mcp) and the [OpenCode](https://opencode.ai) / [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) ecosystem.*
+Now go erode some DOMs like a pro. 🧽✨
