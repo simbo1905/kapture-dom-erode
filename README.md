@@ -13,9 +13,13 @@ What now? Use the kapture-dom-erode skill. Read the *visible* text from multi-me
 
 ## You Know That Moment When...
 
-Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. The two product names you can see on screen? Buried inside 47 wrapper tags. That sidebar with user statuses? Somewhere in there, good luck finding it.
+Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. 
 
-Yeah. We've all been there.
+**You*** see text on screen that is not far appart. The **LLM** sees that text a mile appart inside 47 wrapper tags. 
+
+This tool lets it _grep_ the strings you care about then _merge_ all the `div` soup to find smallest merged "plain text" that is everything that *includes* the strings you want. 
+
+If you can see six projects on a huge page that are on "special offer" the agent can match on two distinct strings then grab all six projects quickly in just three tool calls. 
 
 ## The Problem
 
