@@ -10,13 +10,13 @@ You asked your LLM to check a web page. It saved an DOM dump that blows up its c
  
 What now? Use the kapture-dom-erode skill. Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
-This tool lets it _grep_ the strings you care about then _merge_ all the `div` soup to find smallest merged screen text that *includes* the strings you are interested in. This allows it to find all the text within a heavily nested side panel of a complex dynamic web page.  
+This tool lets it `gron-grep` for the strings you care about then `extract-text` to *erode* away all the `div` soup between them. This returns the smallest region of screen text that *includes* all the strings you searched for. This allows it to find all the text within a heavily nested side panel of a complex dynamic web page.  
 
 ## You Know That Moment When...
 
 Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. 
 
-**You*** see text on screen that is not far appart. The **LLM** sees that text a mile appart inside 47 wrapper tags. 
+**You** see text on screen that is not far apart. The **LLM** sees that text a mile apart inside 47 wrapper tags. 
 
 ## The Problem
 
@@ -25,21 +25,24 @@ Your agent says *"I can see the page"* but what it actually has is millions of c
 - 💸 **Context windows cry** -- feeding raw HTML to your LLM is... not ideal
 - ⚠️ **Screenshots aren't parseable** -- you can see it, but the agent can't read it
 
-If you can see six projects on "special offer" on the page. The agent cannot see those six special offers amongst the 25 projects in the 2M tag soup! 
+If you can see six products on "special offer" on the page. The agent cannot see those six special offers amongst the 25 products in the 2M tag soup! 
 
 ## The Solution `kapture-dom-erode`
 
-The commands. Find two on special, merge to find them all. Done.
+The commands. Find two on special, erode the tags to find them all. Done.
 
 ```bash
-# Step 1: grep for WHERE the one special offer lives in the DOM tree
+# Step 1: grep for WHERE the first special offer lives in the DOM tree
 ./tools.sh gron-grep -f saved_page.html -q "Wireless Headphones"
+# html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1].div[0].div[1].div[0].div[0].h3[0]
 
-# Step 2: grep for WHERE the any other special offer lives in the DOM tree
+# Step 2: grep for WHERE another special offer lives in the DOM tree
 ./tools.sh gron-grep -f saved_page.html -q "Gaming Mouse"
+# html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1].div[0].div[1].div[1].div[0].h3[0]
 
-# Step 3: merge all the readable text
-./tools.sh extract-text -f saved_page.html -p "html[0].body[0].div[6].div[2]"
+# Step 3: erode the tag soup to get the readable text
+./tools.sh extract-text -f saved_page.html \
+  -p "html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1]"
 ```
 
 Boom. Human-readable content from the tag soup.
