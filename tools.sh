@@ -6,7 +6,7 @@
 set -eu
 
 if [ $# -eq 0 ]; then
-	echo "Usage: $0 [gron-grep|extract-text|top-content] [options]"
+	echo "Usage: $0 [gron-grep|extract-text|top-content|main-text] [options]"
 	echo ""
 	echo "Structural tag erosion and gron-grep for Kapture DOM snapshots."
 	echo ""

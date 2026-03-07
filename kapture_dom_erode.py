@@ -176,6 +176,79 @@ def _score_block(element):
     return chars, words, preview
 
 
+def common_ancestor_path(path_a, path_b):
+    """Return the longest common ancestor path shared by two gron-style paths."""
+    parts_a = path_a.split(".")
+    parts_b = path_b.split(".")
+    common = []
+    for a, b in zip(parts_a, parts_b):
+        if a == b:
+            common.append(a)
+        else:
+            break
+    return ".".join(common) if common else ""
+
+
+def do_main_text(args):
+    content = load_dom_content(args.file, args.content_key)
+    soup = BeautifulSoup(content, "lxml")
+
+    # Collect scores for every block-level element (same as top-content)
+    results = []
+    seen_paths = set()
+    for tag in soup.find_all(_BLOCK_TAGS):
+        skip = False
+        p = tag.parent
+        while p and p.name:
+            if p.name in _SKIP_TAGS:
+                skip = True
+                break
+            p = p.parent
+        if skip:
+            continue
+        chars, words, preview = _score_block(tag)
+        if chars < 50:
+            continue
+        path = get_gron_path(tag)
+        if path in seen_paths:
+            continue
+        seen_paths.add(path)
+        results.append((chars, words, preview, path, tag))
+
+    results.sort(key=lambda x: x[0], reverse=True)
+
+    if len(results) < 2:
+        print("Not enough content blocks found.", file=sys.stderr)
+        sys.exit(1)
+
+    path_1 = results[0][3]
+    path_2 = results[1][3]
+
+    ancestor_path = common_ancestor_path(path_1, path_2)
+    if not ancestor_path:
+        print(
+            f"Warning: no common ancestor found for:\n  {path_1}\n  {path_2}\n"
+            "Falling back to largest block.",
+            file=sys.stderr,
+        )
+        ancestor_path = path_1
+
+    if not args.quiet:
+        print(f"Top-1: {path_1}")
+        print(f"Top-2: {path_2}")
+        print(f"Common ancestor: {ancestor_path}")
+        print()
+
+    ancestor = resolve_path(soup, ancestor_path)
+    if ancestor is None:
+        print(f"Could not resolve ancestor path: {ancestor_path}", file=sys.stderr)
+        sys.exit(1)
+
+    text = ancestor.get_text(separator=" \n ", strip=True)
+    text = re.sub(r"\n\s*\n", "\n", text)
+    print(text)
+
+
 def do_top_content(args):
     content = load_dom_content(args.file, args.content_key)
 
@@ -354,6 +427,30 @@ def main():
         help="Gron-style path to the root element to extract text from",
     )
 
+    # main-text
+    parser_mt = subparsers.add_parser(
+        "main-text",
+        help="Auto-extract main body text: finds top-2 content blocks, erodes their common ancestor",
+    )
+    parser_mt.add_argument(
+        "--file",
+        "-f",
+        required=True,
+        help="Saved DOM file: kapture_dom response JSON (preferred) or raw HTML",
+    )
+    parser_mt.add_argument(
+        "--content-key",
+        "-k",
+        default="html",
+        help='JSON key that contains DOM content when loading from kapture_dom JSON (default: "html")',
+    )
+    parser_mt.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress path diagnostics, output only the extracted text",
+    )
+
     # top-content
     parser_tc = subparsers.add_parser(
         "top-content",
@@ -391,6 +488,8 @@ def main():
         do_extract_text(args)
     elif args.command == "top-content":
         do_top_content(args)
+    elif args.command == "main-text":
+        do_main_text(args)
 
 
 if __name__ == "__main__":

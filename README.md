@@ -1,218 +1,190 @@
 # kapture-dom-erode
 
-You asked your LLM to check a web page. It saved an DOM dump that blows up its context window. 😱 
-
+You asked your LLM to check a web page. It saved a DOM dump that blows up its context window. 😱 
 
 ```bash
 ❯ ls -alh kapture-dom-page-save.html
 -rw-r--r--  1 yourname  staff   1.8M Mar  6 13:06 kapture-dom-page-save.html 😤 
 ```
- 
-What now? Use the kapture-dom-erode skill. Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
-This tool lets it `gron-grep` for the strings you care about then `extract-text` to *erode* away all the `div` soup between them. This returns the smallest region of screen text that *includes* all the strings you searched for. This allows it to find all the text within a heavily nested side panel of a complex dynamic web page.  
+What now? Use the kapture-dom-erode skill. Read the *visible* text from multi-megabyte Kapture snapshots without drowning in `<div>` soup.
 
 ## You Know That Moment When...
 
-Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML. 
+Your agent says *"I can see the page"* but what it actually has is millions of characters of nested HTML.
 
-**You** see text on screen that is not far apart. The **LLM** sees that text a mile apart inside 47 wrapper tags. 
+**You** see text on screen that is not far apart. The **LLM** sees that text a mile apart inside 47 wrapper tags.
 
 ## The Problem
 
 - 🤯 **Kapture DOM dumps are massive** -- 1-5MB of framework-generated tag soup
-- 🔍 **Text is buried** -- "Wireless Headphones" lives at `html[0].body[0].div[6].div[2].div[1].div[4].div[0].h3[0]`
-- 💸 **Context windows cry** -- feeding raw HTML to your LLM is... not ideal
+- 🔍 **Text is buried** -- "Bake at 180°C" lives at `html[0].body[0].div[6].div[2].div[1].div[4].div[0].p[0]`
+- 💸 **Context windows cry** -- feeding raw HTML to your LLM is not ideal
 - ⚠️ **Screenshots aren't parseable** -- you can see it, but the agent can't read it
 
-If you can see four products on "special offer" on the page. The agent cannot see those four special offers amongst the 25 products in the 2M tag soup! 
+## The Solution
 
-## The Solution `kapture-dom-erode`
-
-The commands. Find two on special, erode the tags to find them all. Done.
+Four commands. Find what you need. Erode the tags. Done.
 
 ```bash
-# Step 1: grep for WHERE the first special offer lives in the DOM tree
-./tools.sh gron-grep -f saved_page.html -q "Wireless Headphones"
-# html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1].div[0].div[1].div[0].div[0].h3[0]
+# Find WHERE text lives in the DOM
+./tools.sh gron-grep -f page.html -q "Bake at 180"
 
-# Step 2: grep for WHERE another special offer lives in the DOM tree
-./tools.sh gron-grep -f saved_page.html -q "Gaming Mouse"
-# html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1].div[0].div[1].div[1].div[0].h3[0]
+# Auto-extract the page's main body text in one shot
+./tools.sh main-text -f page.html
 
-# Step 3: erode the tag soup to get the readable text
-./tools.sh extract-text -f saved_page.html \
-  -p "html[0].body[0].div[1].main[0].div[1].div[0].div[3].section[1]"
+# Rank all block elements by size, auto-detect main content region
+./tools.sh top-content -f page.html
+
+# Strip tags below a known path, return visible text
+./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
 ```
-
-Boom. Human-readable content from the tag soup.
 
 ---
 
-## 🚀 Features That Actually Matter
+## 🚀 Commands
 
-**1. Find the biggest content regions automatically** 📊
+### `main-text` — One-shot main body extraction
 
-Don't know where the main content is? `top-content` scans every block element, counts visible characters and words, and prints the top 10 by size -- with a 256-char preview so you can see what's in each one. Then it auto-detects the most likely "real content" region by spotting the heading + body alternating pattern that structured content always has.
+The fastest path to clean page text. Finds the two largest content blocks, computes their common ancestor, and erodes everything from that ancestor. Because the two biggest text blocks are almost always in the main body — their common ancestor joins all the siblings together, capturing everything above, between, and below them while excluding nav chrome.
+
+```bash
+./tools.sh main-text -f page.html
+```
+
+Output (diagnostic lines + extracted text):
+```
+Top-1: html[0].body[0].main[0].div[0].section[1]
+Top-2: html[0].body[0].main[0].div[0].section[2]
+Common ancestor: html[0].body[0].main[0].div[0]
+
+Roasted Vegetable Tart
+Serves 4 · Ready in 55 minutes
+
+Ingredients
+2 sheets shortcrust pastry
+3 courgettes, sliced
+...
+```
+
+Use `--quiet` / `-q` to suppress the diagnostic lines and get only the text.
+
+---
+
+### `top-content` — Rank blocks and detect content region
+
+Scans every block element, counts visible characters, prints the top N by size with previews. Also auto-detects the most likely "real content" region by spotting the heading + body alternating pattern.
 
 ```bash
 ./tools.sh top-content -f page.html
 ```
 
-Output:
 ```
-Path                                          Chars   Words  Preview
----------------------------------------------------------------------
-html[0].body[0].div[1].main[0]               18432    2901  Welcome to the LSE AI Leadership Accelerator Congratulations! By joining...
-html[0].body[0].div[1].main[0].div[0]        18201    2870  Welcome to the LSE AI Leadership Accelerator Congratulations! By joining...
-html[0].body[0].div[1].main[0].div[0].div[2]  9823    1544  What is AI? Artificial intelligence refers to computer systems that can...
-...
+Path                                    Chars   Words  Preview
+---------------------------------------------------------------
+html[0].body[0].main[0]                18432    2901  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
+html[0].body[0].main[0].div[0]         18201    2870  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
+html[0].body[0].main[0].div[0].div[1]   9823    1544  Ingredients 2 sheets shortcrust pastry 3 courgettes...
 
 --- Content region detection ---
-Best candidate: html[0].body[0].div[1].main[0].div[0].div[2]
+Best candidate: html[0].body[0].main[0].div[0].div[1]
   Score: 14  (headings=4, blocks=6)
-
-To extract all content from this region:
-  uv run kapture_dom_erode.py extract-text -f page.html -p "html[0].body[0].div[1].main[0].div[0].div[2]"
 ```
 
-**Options:**
-- `-f, --file` -- the saved DOM file
-- `--top N` -- show top N results (default: 10)
-- `--no-detect` -- skip the content region auto-detection
+Options: `--top N` (default 10), `--no-detect` (skip auto-detection).
 
-**2. Structural grep for the DOM** 🔍
+---
 
-Search any text and get back its exact coordinates in the HTML tree. Like GPS for where content lives.
+### `gron-grep` — Structural grep
+
+Search any text string and get back its exact coordinates in the HTML tree.
 
 ```bash
 ./tools.sh gron-grep -f page.html -q "On Sale"
-
 # html[0].body[0].div[3].div[1].div[2].span[0] = "On Sale"
 # html[0].body[0].div[3].div[5].div[2].span[0] = "On Sale"
 ```
 
-**2. Tag Erosion** 🧽
-
-Strip away all the markup and return just the visible text from any region of the page. Reading order preserved.
-
-```bash
-./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
-
-# On Sale
-# Wireless Headphones -- Was $99, now $49
-# USB-C Hub -- Was $45, now $29
-# Mechanical Keyboard -- Was $129, now $79
-```
-
-**3. Zero Dependencies** 
-
-Just Python + BeautifulSoup. No npm install, no Docker, no 47 layers of abstraction. Pure DOM parsing goodness.
-
-**4. Stupid Fast** ⚡
-
-Processes multi-megabyte files in seconds. Because waiting for tag soup to parse is nobody's idea of fun.
+Options: `-q <text>`, `-i` (case-insensitive).
 
 ---
 
-## 💡 Use Cases That'll Make You Look Like a Genius
+### `extract-text` — Tag erosion
 
-### For AI Agent Wranglers
+Strip away all markup and return visible text from any subtree. Reading order preserved.
 
-- **📊 Extract structured data** -- "I can see 3 products on sale. List all of them."
-- **👥 Scrape member lists** -- Chat sidebars, team directories, attendee lists
-- **🛒 Parse e-commerce** -- "Find all items marked 'Special Offer' and their prices"
-- **📑 Read documentation tables** -- API endpoints, config options, pricing tiers
-
-### For Web Scraping Without Scraping
-
-- **🔒 No rate limits** -- you already have the DOM snapshot
-- **📄 No anti-bot** -- it's a local file, not a live site
-- **🎯 Precise extraction** -- find the container, erode the tags, get clean text
+```bash
+./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
+# On Sale
+# Wireless Headphones -- Was $99, now $49
+# USB-C Hub -- Was $45, now $29
+```
 
 ---
 
 ## Example: "Show Me All The Deals"
 
-You're browsing Amazon. You see two products with "Limited Time Deal" badges. You want your LLM to extract **every** deal on the page.
-
-**Step 1** -- Find where "Limited Time Deal" lives:
+You see two products with "Limited Time Deal" badges. You want all of them.
 
 ```bash
-./tools.sh gron-grep -f amazon.html -q "Limited Time Deal"
+# Find both
+./tools.sh gron-grep -f shop.html -q "Limited Time Deal"
 # html[0].body[0].div[2].div[1].div[0].div[3].span[0]
 # html[0].body[0].div[2].div[3].div[0].div[3].span[0]
+
+# Both share ancestor div[2] — extract everything from there
+./tools.sh extract-text -f shop.html -p "html[0].body[0].div[2]"
 ```
 
-**Step 2** -- Both share a common ancestor (`div[2]`). Extract everything from there:
+Or skip the manual steps entirely:
 
 ```bash
-./tools.sh extract-text -f amazon.html -p "html[0].body[0].div[2]"
+./tools.sh main-text -f shop.html
 ```
-
-**Result** -- all the special offers, eroded from the tag soup:
-
-```
-Special Offers
-
-Wireless Headphones
-Was $89.99, now $44.99 (50% OFF)
-
-USB-C Hub Pro
-Was $79.99, now $39.99 (50% OFF)
-
-Mechanical Keyboard
-Was $129.99, now $64.99 (50% OFF)
-
-Gaming Mouse
-Was $59.99, now $29.99 (50% OFF)
-```
-
-> 💡 **In the above result:** *Wireless Headphones* and *Gaming Mouse* were the two items you searched for. *USB-C Hub Pro* and *Mechanical Keyboard* are their siblings — all eroded from the same parent container in one shot.
-
-All the wrapper divs, CSS classes, React component markup -- gone. Just what the human sees.
 
 ---
 
-## 📖 Quick Reference (The Details)
+## Input Format
+
+`-f` accepts either:
+1. The full JSON object returned by `kapture_dom` (recommended) — the tool reads the `"html"` key by default
+2. A raw `.html` file
+
+Override the JSON key with `-k / --content-key` if your dump uses a different field name.
+
+---
+
+## 📖 Quick Reference
 
 ```
-NAME
-  kapture-dom-erode — search and extract text from Kapture DOM snapshots
-
 SYNOPSIS
-  ./tools.sh top-content -f <file> [--top N] [--no-detect]
-  ./tools.sh gron-grep -f <file> -q <text> [-i]
+  ./tools.sh main-text    -f <file> [-q]
+  ./tools.sh top-content  -f <file> [--top N] [--no-detect]
+  ./tools.sh gron-grep    -f <file> -q <text> [-i]
   ./tools.sh extract-text -f <file> -p <path>
 
-COMMANDS
-  top-content   Rank all block elements by visible text size, auto-detect main content
-  gron-grep     Find text, output structural paths (gron-style)
-  extract-text  Strip tags below path, return visible text
+OPTIONS (all commands)
+  -f, --file         Input file (kapture_dom JSON or raw HTML)
+  -k, --content-key  JSON key for DOM content (default: html)
 
-OPTIONS
-  -f, --file     Input HTML file from Kapture
-  --top N        Number of top results to show (top-content, default: 10)
-  --no-detect    Skip content region auto-detection (top-content)
-  -q, --query    Text to search for (gron-grep)
-  -p, --path     Structural path to extract from (extract-text)
-  -i             Case-insensitive search (gron-grep)
+main-text
+  -q, --quiet        Output extracted text only, no diagnostics
 
-EXAMPLES
-  # Find where "Add to Cart" buttons live
-  ./tools.sh gron-grep -f shop.html -q "Add to Cart" -i
+top-content
+  --top N            Show top N results (default: 10)
+  --no-detect        Skip content region auto-detection
 
-  # Extract all product names from a listing page
-  ./tools.sh gron-grep -f shop.html -q "iPhone 15"
-  # (compare paths, find common ancestor)
-  ./tools.sh extract-text -f shop.html -p "html[0].body[0].div[4]"
+gron-grep
+  -q, --query        Text to search for
+  -i                 Case-insensitive search
+
+extract-text
+  -p, --path         Gron-style path to extract from
 ```
 
 ---
 
 ## ⚡ Installation
-
-Copy the skill to your agent's skills directory:
 
 ```bash
 # OpenCode
@@ -222,28 +194,10 @@ cp -r kapture-dom-erode ~/.config/opencode/skills/
 cp -r kapture-dom-erode ~/.claude/skills/
 ```
 
-Dependencies? Just Python + BeautifulSoup. The wrapper handles it via `uv`.
-
----
-
-## 🎯 Why This Exists
-
-Born from frustration with Kapture MCP saving massive DOM dumps and then... what? Screenshots are pretty but not parseable. Raw HTML is machine-readable but human-unreadable. You need something in between.
-
-This skill is that bridge: find the text, erode the tags, get clean content.
-
-You are not someone who enjoys manually grepping through `div[6].div[0].div[0].div[0].div[1].div[0]...` paths to find where the "Buy Now" button lives. Obviously not you. Me neither.
+Dependencies: Python + BeautifulSoup, handled via `uv`.
 
 ---
 
 ## 📜 License
 
-MIT -- Copyright (c) 2026 Simon Massey
-
-Use it, fork it, put it in production. No warranty -- if it deletes your DOM files, that's on you (though it only reads, so you're probably fine).
-
----
-
-Made with ❤️ and frustration by someone who spent too many tokens hunting for text in tag soup.
-
-Now go erode some DOMs like a pro. 🧽✨
+MIT — Copyright (c) 2026 Simon Massey
