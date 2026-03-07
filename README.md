@@ -44,6 +44,51 @@ Four commands. Find what you need. Erode the tags. Done.
 
 ## 🚀 Commands
 
+### `top-content` — Rank blocks and detect content region
+
+Scans every block element, counts visible characters, prints the top N by size with previews. Also auto-detects the most likely "real content" region by spotting the heading + body alternating pattern.
+
+```bash
+./tools.sh top-content -f page.html
+```
+
+```
+Path                                    Chars   Words  Preview
+---------------------------------------------------------------
+html[0].body[0].main[0]                18432    2901  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
+html[0].body[0].main[0].div[0]         18201    2870  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
+html[0].body[0].main[0].div[0].div[1]   9823    1544  Ingredients 2 sheets shortcrust pastry 3 courgettes...
+
+--- Content region detection ---
+Best candidate: html[0].body[0].main[0].div[0].div[1]
+  Score: 14  (headings=4, blocks=6)
+```
+
+Options: `--top N` (default 10), `--no-detect` (skip auto-detection).
+
+### `gron-grep` — Structural grep
+
+Search any text string and get back its exact coordinates in the HTML tree.
+
+```bash
+./tools.sh gron-grep -f page.html -q "On Sale"
+# html[0].body[0].div[3].div[1].div[2].span[0] = "On Sale"
+# html[0].body[0].div[3].div[5].div[2].span[0] = "On Sale"
+```
+
+Options: `-q <text>`, `-i` (case-insensitive).
+
+### `extract-text` — Tag erosion
+
+Strip away all markup and return visible text from any subtree. Reading order preserved.
+
+```bash
+./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
+# On Sale
+# Wireless Headphones -- Was $99, now $49
+# USB-C Hub -- Was $45, now $29
+```
+
 ### `main-text` — One-shot main body extraction
 
 The fastest path to clean page text. Finds the two largest content blocks, computes their common ancestor, and erodes everything from that ancestor. Because the two biggest text blocks are almost always in the main body — their common ancestor joins all the siblings together, capturing everything above, between, and below them while excluding nav chrome.
@@ -69,56 +114,6 @@ Ingredients
 
 Use `--quiet` / `-q` to suppress the diagnostic lines and get only the text.
 
----
-
-### `top-content` — Rank blocks and detect content region
-
-Scans every block element, counts visible characters, prints the top N by size with previews. Also auto-detects the most likely "real content" region by spotting the heading + body alternating pattern.
-
-```bash
-./tools.sh top-content -f page.html
-```
-
-```
-Path                                    Chars   Words  Preview
----------------------------------------------------------------
-html[0].body[0].main[0]                18432    2901  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
-html[0].body[0].main[0].div[0]         18201    2870  Roasted Vegetable Tart Serves 4 Ready in 55 minutes...
-html[0].body[0].main[0].div[0].div[1]   9823    1544  Ingredients 2 sheets shortcrust pastry 3 courgettes...
-
---- Content region detection ---
-Best candidate: html[0].body[0].main[0].div[0].div[1]
-  Score: 14  (headings=4, blocks=6)
-```
-
-Options: `--top N` (default 10), `--no-detect` (skip auto-detection).
-
----
-
-### `gron-grep` — Structural grep
-
-Search any text string and get back its exact coordinates in the HTML tree.
-
-```bash
-./tools.sh gron-grep -f page.html -q "On Sale"
-# html[0].body[0].div[3].div[1].div[2].span[0] = "On Sale"
-# html[0].body[0].div[3].div[5].div[2].span[0] = "On Sale"
-```
-
-Options: `-q <text>`, `-i` (case-insensitive).
-
----
-
-### `extract-text` — Tag erosion
-
-Strip away all markup and return visible text from any subtree. Reading order preserved.
-
-```bash
-./tools.sh extract-text -f page.html -p "html[0].body[0].div[3]"
-# On Sale
-# Wireless Headphones -- Was $99, now $49
-# USB-C Hub -- Was $45, now $29
-```
 
 ---
 
