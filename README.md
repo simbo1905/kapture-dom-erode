@@ -51,7 +51,37 @@ Boom. Human-readable content from the tag soup.
 
 ## 🚀 Features That Actually Matter
 
-**1. Structural grep for the DOM** 🔍
+**1. Find the biggest content regions automatically** 📊
+
+Don't know where the main content is? `top-content` scans every block element, counts visible characters and words, and prints the top 10 by size -- with a 256-char preview so you can see what's in each one. Then it auto-detects the most likely "real content" region by spotting the heading + body alternating pattern that structured content always has.
+
+```bash
+./tools.sh top-content -f page.html
+```
+
+Output:
+```
+Path                                          Chars   Words  Preview
+---------------------------------------------------------------------
+html[0].body[0].div[1].main[0]               18432    2901  Welcome to the LSE AI Leadership Accelerator Congratulations! By joining...
+html[0].body[0].div[1].main[0].div[0]        18201    2870  Welcome to the LSE AI Leadership Accelerator Congratulations! By joining...
+html[0].body[0].div[1].main[0].div[0].div[2]  9823    1544  What is AI? Artificial intelligence refers to computer systems that can...
+...
+
+--- Content region detection ---
+Best candidate: html[0].body[0].div[1].main[0].div[0].div[2]
+  Score: 14  (headings=4, blocks=6)
+
+To extract all content from this region:
+  uv run kapture_dom_erode.py extract-text -f page.html -p "html[0].body[0].div[1].main[0].div[0].div[2]"
+```
+
+**Options:**
+- `-f, --file` -- the saved DOM file
+- `--top N` -- show top N results (default: 10)
+- `--no-detect` -- skip the content region auto-detection
+
+**2. Structural grep for the DOM** 🔍
 
 Search any text and get back its exact coordinates in the HTML tree. Like GPS for where content lives.
 
@@ -151,15 +181,19 @@ NAME
   kapture-dom-erode — search and extract text from Kapture DOM snapshots
 
 SYNOPSIS
+  ./tools.sh top-content -f <file> [--top N] [--no-detect]
   ./tools.sh gron-grep -f <file> -q <text> [-i]
   ./tools.sh extract-text -f <file> -p <path>
 
 COMMANDS
+  top-content   Rank all block elements by visible text size, auto-detect main content
   gron-grep     Find text, output structural paths (gron-style)
   extract-text  Strip tags below path, return visible text
 
 OPTIONS
   -f, --file     Input HTML file from Kapture
+  --top N        Number of top results to show (top-content, default: 10)
+  --no-detect    Skip content region auto-detection (top-content)
   -q, --query    Text to search for (gron-grep)
   -p, --path     Structural path to extract from (extract-text)
   -i             Case-insensitive search (gron-grep)

@@ -30,6 +30,33 @@ The Kapture MCP plugin captures the full DOM of a browser tab. That's great for 
 - Read structured content (tables, cards, menus) from the DOM as clean text
 - Navigate multi-megabyte page captures that are too large to read directly
 
+## Saving the DOM to a file
+
+**This is the critical first step.** The `kapture_dom` MCP tool returns a JSON response object with many keys, including `"html"`.
+
+**Where to save:** Write the DOM to a local scratch space in your current working directory (e.g., `.tmp/`, `scratch/`, or similar). If your sandbox does not permit local writes, use `/tmp` as a fallback.
+
+**File format:** Save one of these two formats:
+
+1. **Full `kapture_dom` response object (preferred):** write the complete JSON returned by `kapture_dom` to a file as-is. This includes metadata fields like `success`, `url`, `title`, and `html`.
+2. **Raw HTML:** the literal HTML string (e.g. `<body>...</body>`) -- no JSON wrapper.
+
+The parser defaults to reading `"html"` from JSON.
+Use `-k / --content-key` if your JSON uses a different field name.
+
+```bash
+# Save to local scratch space (preferred)
+./skills/kapture-dom-erode/tools.sh top-content -f .tmp/page.json
+./skills/kapture-dom-erode/tools.sh top-content -f .tmp/page.json -k html
+
+# Or fallback to /tmp if local writes are blocked
+./skills/kapture-dom-erode/tools.sh top-content -f /tmp/page.json
+```
+
+**Global behavior across commands:**
+
+- `-k, --content-key` -- optional JSON key for DOM extraction. Default is `html`.
+
 ## Commands
 
 ### `gron-grep` -- find text in the DOM
@@ -37,11 +64,12 @@ The Kapture MCP plugin captures the full DOM of a browser tab. That's great for 
 Search for any text and get back its structural path (like a GPS coordinate for where it sits in the page).
 
 ```bash
-./skills/kapture-dom-erode/tools.sh gron-grep -f page.html -q "search text" [-i]
+./skills/kapture-dom-erode/tools.sh gron-grep -f page.json -q "search text" [-i]
 ```
 
 **Options:**
-- `-f, --file` -- the saved DOM file (HTML or JSON-wrapped HTML from Kapture)
+- `-f, --file` -- saved DOM file (JSON with `"html"` key, or raw HTML -- see "Saving the DOM" above)
+- `-k, --content-key` -- JSON key for DOM content when using JSON input (default: `html`)
 - `-q, --query` -- the text to search for
 - `-i, --ignore-case` -- case-insensitive search
 
@@ -67,7 +95,8 @@ Given a structural path, strip away all HTML tags below that point and return ju
 ```
 
 **Options:**
-- `-f, --file` -- the saved DOM file
+- `-f, --file` -- saved DOM file (JSON with `"html"` key, or raw HTML -- see "Saving the DOM" above)
+- `-k, --content-key` -- JSON key for DOM content when using JSON input (default: `html`)
 - `-p, --path` -- a gron-style path from `gron-grep` output (or a common ancestor of multiple results)
 
 **Example:** extract the member list from a chat sidebar:

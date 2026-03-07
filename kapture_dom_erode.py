@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import sys
 import re
 from bs4 import BeautifulSoup, NavigableString
@@ -62,17 +63,7 @@ def resolve_path(soup, path):
 
 
 def do_gron_grep(args):
-    with open(args.file, "r", encoding="utf-8") as f:
-        # Sometimes Kapture DOM is wrapped in JSON
-        content = f.read()
-        if content.strip().startswith("{"):
-            import json
-
-            try:
-                data = json.loads(content)
-                content = data.get("html", content)
-            except:
-                pass
+    content = load_dom_content(args.file, args.content_key)
 
     soup = BeautifulSoup(content, "lxml")
     query = args.query.lower() if args.ignore_case else args.query
@@ -92,16 +83,7 @@ def do_gron_grep(args):
 
 
 def do_extract_text(args):
-    with open(args.file, "r", encoding="utf-8") as f:
-        content = f.read()
-        if content.strip().startswith("{"):
-            import json
-
-            try:
-                data = json.loads(content)
-                content = data.get("html", content)
-            except:
-                pass
+    content = load_dom_content(args.file, args.content_key)
 
     soup = BeautifulSoup(content, "lxml")
     target = resolve_path(soup, args.path)
@@ -118,9 +100,212 @@ def do_extract_text(args):
         sys.exit(1)
 
 
+# Tags that are never user-visible content
+_SKIP_TAGS = {
+    "script",
+    "style",
+    "noscript",
+    "head",
+    "meta",
+    "link",
+    "template",
+    "svg",
+    "iframe",
+    "object",
+    "embed",
+}
+
+# Block-level tags that form natural content containers
+_BLOCK_TAGS = {
+    "div",
+    "section",
+    "article",
+    "main",
+    "aside",
+    "nav",
+    "header",
+    "footer",
+    "p",
+    "li",
+    "td",
+    "th",
+    "blockquote",
+    "pre",
+    "figure",
+    "figcaption",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+}
+
+# Heading tags used for section-header detection
+_HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+
+
+def _visible_text(element):
+    """Return all visible text under element, skipping skip-tags."""
+    chunks = []
+    for node in element.descendants:
+        if isinstance(node, NavigableString):
+            parent = node.parent
+            # Walk up to check no ancestor is a skip-tag
+            skip = False
+            p = parent
+            while p and p.name:
+                if p.name in _SKIP_TAGS:
+                    skip = True
+                    break
+                p = p.parent
+            if skip:
+                continue
+            text = node.strip()
+            if text:
+                chunks.append(text)
+    return " ".join(chunks)
+
+
+def _score_block(element):
+    """Return (char_count, word_count, preview) for a block element."""
+    text = _visible_text(element)
+    chars = len(text)
+    words = len(text.split()) if text else 0
+    preview = text[:256].replace("\n", " ")
+    return chars, words, preview
+
+
+def do_top_content(args):
+    content = load_dom_content(args.file, args.content_key)
+
+    soup = BeautifulSoup(content, "lxml")
+    top_n = args.top
+
+    # Collect scores for every block-level element
+    results = []
+    seen_paths = set()
+
+    for tag in soup.find_all(_BLOCK_TAGS):
+        # Skip if ancestor already in skip-tags
+        skip = False
+        p = tag.parent
+        while p and p.name:
+            if p.name in _SKIP_TAGS:
+                skip = True
+                break
+            p = p.parent
+        if skip:
+            continue
+
+        chars, words, preview = _score_block(tag)
+        if chars < 50:
+            continue  # too small to be interesting
+
+        path = get_gron_path(tag)
+        if path in seen_paths:
+            continue
+        seen_paths.add(path)
+
+        results.append((chars, words, preview, path, tag))
+
+    # Sort by char count descending, take top N
+    results.sort(key=lambda x: x[0], reverse=True)
+    top = results[:top_n]
+
+    # Print table
+    col_path = max(len(r[3]) for r in top) if top else 10
+    col_chars = 6
+    col_words = 6
+
+    header = (
+        f"{'Path':<{col_path}}  {'Chars':>{col_chars}}  {'Words':>{col_words}}  Preview"
+    )
+    print(header)
+    print("-" * len(header))
+    for chars, words, preview, path, _tag in top:
+        trunc = (preview[:253] + "...") if len(preview) > 256 else preview
+        print(
+            f"{path:<{col_path}}  {chars:>{col_chars}}  {words:>{col_words}}  {trunc}"
+        )
+
+    # --- Auto-detect main course content region ---
+    # Heuristic: look for the element whose DIRECT children include both
+    # heading tags and substantial sibling body blocks in alternating pattern.
+    # Score each block-container by counting (heading child, big-sibling) pairs.
+    if not args.no_detect:
+        print("\n--- Content region detection ---")
+        best_score = 0
+        best_path = None
+        best_tag = None
+
+        for _chars, _words, _preview, path, tag in results[:50]:
+            children = [c for c in tag.children if hasattr(c, "name") and c.name]
+            if len(children) < 3:
+                continue
+
+            heading_count = sum(1 for c in children if c.name in _HEADING_TAGS)
+            big_block_count = sum(
+                1
+                for c in children
+                if c.name in _BLOCK_TAGS and len(_visible_text(c)) > 80
+            )
+            # Alternating pattern score: headings + big blocks together
+            score = heading_count * 2 + big_block_count
+            if score > best_score:
+                best_score = score
+                best_path = path
+                best_tag = tag
+
+        if best_tag is not None:
+            print(f"Best candidate: {best_path}")
+            print(
+                f"  Score: {best_score}  "
+                f"(headings={sum(1 for c in best_tag.children if hasattr(c, 'name') and c.name in _HEADING_TAGS)}, "
+                f"blocks={sum(1 for c in best_tag.children if hasattr(c, 'name') and c.name in _BLOCK_TAGS)})"
+            )
+            print(f"\nTo extract all content from this region:")
+            print(
+                f'  uv run kapture_dom_erode.py extract-text -f {args.file} -p "{best_path}" -k {args.content_key}'
+            )
+        else:
+            print(
+                "No clear content region detected -- try extract-text on the largest path above."
+            )
+
+
+def load_dom_content(file_path, content_key="html"):
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if not content.strip().startswith("{"):
+        return content
+
+    try:
+        data = json.loads(content)
+    except Exception:
+        return content
+
+    if isinstance(data, dict) and content_key in data:
+        return data.get(content_key)
+
+    if isinstance(data, dict):
+        return data.get("html", content)
+
+    return content
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Tag Soup Parse: A tool to structurally erode and query DOM trees using gron-like syntax."
+        description=(
+            "Tag Soup Parse: structurally erode and query DOM trees using gron-like syntax.\n\n"
+            "INPUT FILE FORMAT: The -f/--file argument accepts either:\n"
+            "  1. The full JSON object returned by kapture_dom (recommended).\n"
+            '     The parser reads the value from the configured content key (default: "html").\n'
+            "  2. A raw HTML file: <body>...</body>\n"
+            "The tool auto-detects raw HTML by checking whether the file starts with '{'."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -129,7 +314,16 @@ def main():
         "gron-grep", help="Find text and output gron-style structural paths"
     )
     parser_gg.add_argument(
-        "--file", "-f", required=True, help="Input HTML or JSON-wrapped HTML file"
+        "--file",
+        "-f",
+        required=True,
+        help="Saved DOM file: kapture_dom response JSON (preferred) or raw HTML",
+    )
+    parser_gg.add_argument(
+        "--content-key",
+        "-k",
+        default="html",
+        help='JSON key that contains DOM content when loading from kapture_dom JSON (default: "html")',
     )
     parser_gg.add_argument("--query", "-q", required=True, help="Text to search for")
     parser_gg.add_argument(
@@ -142,7 +336,16 @@ def main():
         help="Extract all visible text below a certain gron path (erodes tags)",
     )
     parser_et.add_argument(
-        "--file", "-f", required=True, help="Input HTML or JSON-wrapped HTML file"
+        "--file",
+        "-f",
+        required=True,
+        help="Saved DOM file: kapture_dom response JSON (preferred) or raw HTML",
+    )
+    parser_et.add_argument(
+        "--content-key",
+        "-k",
+        default="html",
+        help='JSON key that contains DOM content when loading from kapture_dom JSON (default: "html")',
     )
     parser_et.add_argument(
         "--path",
@@ -151,12 +354,43 @@ def main():
         help="Gron-style path to the root element to extract text from",
     )
 
+    # top-content
+    parser_tc = subparsers.add_parser(
+        "top-content",
+        help="Rank all block elements by visible text size and auto-detect main content region",
+    )
+    parser_tc.add_argument(
+        "--file",
+        "-f",
+        required=True,
+        help="Saved DOM file: kapture_dom response JSON (preferred) or raw HTML",
+    )
+    parser_tc.add_argument(
+        "--content-key",
+        "-k",
+        default="html",
+        help='JSON key that contains DOM content when loading from kapture_dom JSON (default: "html")',
+    )
+    parser_tc.add_argument(
+        "--top",
+        type=int,
+        default=10,
+        help="Number of top results to show (default: 10)",
+    )
+    parser_tc.add_argument(
+        "--no-detect",
+        action="store_true",
+        help="Skip content region auto-detection",
+    )
+
     args = parser.parse_args()
 
     if args.command == "gron-grep":
         do_gron_grep(args)
     elif args.command == "extract-text":
         do_extract_text(args)
+    elif args.command == "top-content":
+        do_top_content(args)
 
 
 if __name__ == "__main__":
