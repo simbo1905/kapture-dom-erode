@@ -142,12 +142,26 @@ This works on any web app -- dashboards, messaging platforms, admin panels, docu
 - `tools.sh` -- POSIX shell wrapper (handles dependencies automatically)
 - `kapture_dom_erode.py` -- Python implementation (BeautifulSoup + lxml)
 
+## Prerequisites
+
+- **[uv](https://docs.astral.sh/uv/)** -- the Python package runner. `tools.sh` uses `uv run` to auto-install dependencies at runtime without polluting the global Python environment. Install with:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+  The wrapper script will exit with a clear error if `uv` is not found.
+
 ## Dependencies
 
-- Python 3 (via `uv`)
-- beautifulsoup4 and lxml (auto-installed by `uv` at runtime)
+- Python 3 (managed by `uv`)
+- beautifulsoup4 and lxml (auto-installed by `uv run` at runtime)
 
 No manual installation required.
+
+## Known limitations
+
+The tool filters hidden elements detected from **inline attributes only**: `display:none`, `visibility:hidden`, `hidden`, `aria-hidden="true"`, and common screenreader-only CSS classes. It also strips HTML comments.
+
+Some SPAs (e.g., Canvas LMS) keep both "fulfilled" and "unfulfilled" states in the DOM and toggle visibility via **external CSS class rules**. Since we parse the DOM without the full stylesheet, these toggle-state templates may appear as duplicate noise in the output. If you encounter repeated template fragments, narrow your extraction path to skip the noisy container.
 
 ## Keywords
 

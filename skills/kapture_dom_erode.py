@@ -3,7 +3,7 @@ import argparse
 import json
 import sys
 import re
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup, Comment, NavigableString
 
 
 def get_gron_path(element):
@@ -69,7 +69,9 @@ def do_gron_grep(args):
     query = args.query.lower() if args.ignore_case else args.query
 
     for text_node in soup.find_all(string=True):
-        if text_node.parent and text_node.parent.name not in ["script", "style"]:
+        if isinstance(text_node, Comment):
+            continue
+        if text_node.parent and not _any_ancestor_hidden(text_node.parent):
             node_text = text_node.strip()
             if not node_text:
                 continue
@@ -77,7 +79,6 @@ def do_gron_grep(args):
             search_text = node_text.lower() if args.ignore_case else node_text
             if query in search_text:
                 path = get_gron_path(text_node.parent)
-                # Escape quotes in value
                 val = node_text.replace('"', '\\"')
                 print(f'{path} = "{val}"')
 
@@ -89,11 +90,7 @@ def do_extract_text(args):
     target = resolve_path(soup, args.path)
 
     if target:
-        # Erode tags into text regions
-        # We'll use a separator (like double newline) to show block separation
-        text = target.get_text(separator=" \n ", strip=True)
-        # Clean up excessive newlines
-        text = re.sub(r"\n\s*\n", "\n", text)
+        text = _visible_text(target)
         print(text)
     else:
         print(f"Could not resolve path: {args.path}", file=sys.stderr)
@@ -144,22 +141,52 @@ _BLOCK_TAGS = {
 # Heading tags used for section-header detection
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
+_HIDDEN_CLASSES = {
+    "screenreader-only",
+    "sr-only",
+    "visually-hidden",
+    "screen-reader-text",
+}
+
+_DISPLAY_NONE_RE = re.compile(r"display\s*:\s*none", re.I)
+_VISIBILITY_HIDDEN_RE = re.compile(r"visibility\s*:\s*hidden", re.I)
+
+
+def _is_hidden(tag):
+    if not hasattr(tag, "attrs"):
+        return False
+    if tag.has_attr("hidden"):
+        return True
+    if tag.get("aria-hidden") == "true":
+        return True
+    style = tag.get("style", "")
+    if style and (_DISPLAY_NONE_RE.search(style) or _VISIBILITY_HIDDEN_RE.search(style)):
+        return True
+    classes = tag.get("class", [])
+    if isinstance(classes, str):
+        classes = classes.split()
+    if _HIDDEN_CLASSES.intersection(classes):
+        return True
+    return False
+
+
+def _any_ancestor_hidden(tag):
+    p = tag
+    while p and p.name:
+        if p.name in _SKIP_TAGS or _is_hidden(p):
+            return True
+        p = p.parent
+    return False
+
 
 def _visible_text(element):
-    """Return all visible text under element, skipping skip-tags."""
+    """Return all visible text under element, skipping hidden and skip-tags."""
     chunks = []
     for node in element.descendants:
+        if isinstance(node, Comment):
+            continue
         if isinstance(node, NavigableString):
-            parent = node.parent
-            # Walk up to check no ancestor is a skip-tag
-            skip = False
-            p = parent
-            while p and p.name:
-                if p.name in _SKIP_TAGS:
-                    skip = True
-                    break
-                p = p.parent
-            if skip:
+            if _any_ancestor_hidden(node.parent):
                 continue
             text = node.strip()
             if text:
@@ -244,8 +271,7 @@ def do_main_text(args):
         print(f"Could not resolve ancestor path: {ancestor_path}", file=sys.stderr)
         sys.exit(1)
 
-    text = ancestor.get_text(separator=" \n ", strip=True)
-    text = re.sub(r"\n\s*\n", "\n", text)
+    text = _visible_text(ancestor)
     print(text)
 
 
