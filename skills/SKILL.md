@@ -105,18 +105,6 @@ Given a structural path, strip away all HTML tags below that point and return ju
   -p "html[0].body[0].div[6].div[0].div[0].div[0].div[1]"
 ```
 
-Output:
-```
-Online
-Meagan Connolly
-Moderator
-You
-Julian Le Beron
-Offline
-Ben Casey
-Zoe Spurgeon
-```
-
 All the wrapper divs, spans, avatar markup, and CSS classes are gone. What's left is what the user sees.
 
 ## Workflow
